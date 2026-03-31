@@ -1,0 +1,9 @@
+*.pyc
+__pycache__/
+.git
+.gitignore
+gui.py
+Verkauf früherer Versionen/
+version_1_0_vinted.tar
+.venv
+venv/

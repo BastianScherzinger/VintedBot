@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Vinted Bot - Start in 5 Minuten</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { font-size: 2em; margin-bottom: 10px; }
+        .content { padding: 30px; }
+        .section { margin: 30px 0; padding: 20px; background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 8px; }
+        .section h2 { color: #667eea; margin-bottom: 15px; font-size: 1.3em; }
+        .section p { line-height: 1.6; margin: 10px 0; color: #333; }
+        .code-block { background: #2d3748; color: #68d391; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto; margin: 15px 0; font-size: 0.9em; }
+        .copy-btn { position: absolute; top: 5px; right: 5px; background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        .steps { counter-reset: step; padding-left: 20px; }
+        .step { list-style: none; margin: 15px 0; padding-left: 40px; position: relative; }
+        .step:before { content: counter(step); counter-increment: step; position: absolute; left: 0; top: 0; width: 30px; height: 30px; background: #667eea; color: white; border-radius: 50%; text-align: center; line-height: 30px; font-weight: bold; }
+        .token-box { background: #fff5f5; border: 2px solid #f56565; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .success-box { background: #f0fff4; border: 2px solid #48bb78; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .info-box { background: #e6fffa; border: 2px solid #38b6a8; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .tabs { display: flex; gap: 10px; margin: 20px 0; border-bottom: 2px solid #e2e8f0; }
+        .tab-btn { background: white; border: none; padding: 12px 20px; cursor: pointer; border-bottom: 3px solid transparent; color: #667eea; font-weight: bold; transition: all 0.3s; }
+        .tab-btn.active { border-bottom-color: #667eea; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 0.9em; border-top: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        table th, table td { padding: 10px; text-align: left; border: 1px solid #ddd; }
+        table th { background: #f0f4ff; font-weight: bold; }
+        .highlight { background: #fff9e6; padding: 2px 6px; border-radius: 3px; }
+        a { color: #667eea; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .code-inline { background: #f0f4ff; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        .collapsible { background: #f0f4ff; padding: 15px; border-radius: 8px; cursor: pointer; margin: 10px 0; border-left: 4px solid #667eea; }
+        .collapsible:hover { background: #e6edff; }
+        .collapsible-content { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd; }
+        .collapsible-content.active { display: block; }
+        @media (max-width: 600px) { .header h1 { font-size: 1.5em; } .content { padding: 20px; } .tabs { flex-wrap: wrap; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>🚀 Vinted Scraper Bot</h1>
+            <p>Starte in 5 Minuten - Alles was du brauchst steht hier</p>
+        </div>
+
+        <div class="content">
+            <!-- TABS -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab(0)">⚡ QUICK START</button>
+                <button class="tab-btn" onclick="showTab(1)">🔑 TOKENS</button>
+                <button class="tab-btn" onclick="showTab(2)">🐳 DOCKER</button>
+                <button class="tab-btn" onclick="showTab(3)">🆘 FEHLER</button>
+            </div>
+
+            <!-- TAB 1: QUICK START -->
+            <div id="tab-0" class="tab-content active">
+                <div class="section">
+                    <h2>⚡ Super Quick Start (5 Min)</h2>
+                    
+                    <ol class="steps">
+                        <li><strong>Docker installieren</strong>
+                            <p style="margin-top: 5px;">Download: <a href="https://www.docker.com/products/docker-desktop" target="_blank">docker.com</a></p>
+                            <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>docker --version</div>
+                        </li>
+
+                        <li><strong>.env Datei erstellen</strong>
+                            <p style="margin-top: 5px;">Neue Datei mit Namen <span class="code-inline">.env</span> (NICHT .env.txt!)</p>
+                            <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>TELEGRAM_TOKEN=dein_token
+TELEGRAM_CHAT_ID=deine_id
+DISCORD_TOKEN=dein_discord_token
+DISCORD_CHANNEL_ID=dein_channel_id
+SUCHBEGRIFF=sneaker</div>
+                            <div class="token-box">⚠️ Noch keine Tokens? → Gehe zu TAB "TOKENS"</div>
+                        </li>
+
+                        <li><strong>Projekt entpacken & öffnen</strong>
+                            <p style="margin-top: 5px;">TAR entpacken (oder ZIP wenn vorhanden):</p>
+                            <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>tar -xf version_1_0_vinted.tar
+cd VintedSCRAPER</div>
+                        </li>
+
+                        <li><strong>Docker bauen</strong>
+                            <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>docker build -t vinted-scraper .</div>
+                            <p style="margin-top: 10px; font-size: 0.9em; color: #666;">⏱️ Dauert 1-2 Minuten</p>
+                        </li>
+
+                        <li><strong>Bot starten</strong>
+                            <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>docker-compose up -d</div>
+                            <div class="success-box">✅ FERTIG! Bot läuft jetzt im Hintergrund!</div>
+                        </li>
+
+                        <li><strong>Logs prüfen</strong>
+                            <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>docker-compose logs -f</div>
+                            <p style="margin-top: 10px;">Sollte zeigen:</p>
+                            <div class="code-block" style="color: #68d391;">✅ Config geladen
+✅ Discord Bot eingeloggt
+✅ Telegram Token: True</div>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- TAB 2: TOKENS -->
+            <div id="tab-1" class="tab-content">
+                <div class="section">
+                    <h2>🔑 Tokens holen</h2>
+
+                    <h3 style="color: #333; margin-top: 20px; margin-bottom: 10px;">1️⃣ Telegram Token & Chat ID</h3>
+                    <ol class="steps" style="padding-left: 20px;">
+                        <li>Öffne Telegram</li>
+                        <li>Suche: <span class="code-inline">@BotFather</span></li>
+                        <li>Schreib: <span class="code-inline">/newbot</span></li>
+                        <li>Gib einen Namen ein (z.B. "Mein Vinted Bot")</li>
+                        <li>BotFather sendet dir einen <strong>TOKEN</strong>
+                            <div class="code-block" style="margin-top: 10px;">123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</div>
+                        </li>
+                        <li>Kopiere diesen Token in .env als <span class="code-inline">TELEGRAM_TOKEN=...</span></li>
+                        <li>Für <span class="code-inline">TELEGRAM_CHAT_ID</span>: Schreib @userinfobot und kopiere deine ID</li>
+                    </ol>
+
+                    <h3 style="color: #333; margin-top: 30px; margin-bottom: 10px;">2️⃣ Discord Token & Channel ID</h3>
+                    <ol class="steps" style="padding-left: 20px;">
+                        <li>Gehe zu: <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a></li>
+                        <li>Klick: "New Application"</li>
+                        <li>Gib Namen ein (z.B. "Vinted Bot")</li>
+                        <li>Gehe zu "Bot" Tab</li>
+                        <li>Klick "Add Bot"</li>
+                        <li>Klick "Reset Token" → Kopieren → in .env als <span class="code-inline">DISCORD_TOKEN=...</span></li>
+                        <li>Für <span class="code-inline">DISCORD_CHANNEL_ID</span>:
+                            <ul style="margin-top: 10px; margin-left: 20px;">
+                                <li>Öffne Discord</li>
+                                <li>Rechtsklick auf Channel</li>
+                                <li>"Copy Channel ID" → in .env einfügen</li>
+                            </ul>
+                        </li>
+                    </ol>
+
+                    <div class="success-box" style="margin-top: 30px;">
+                        ✅ Alle Tokens in .env einfügen?<br>
+                        → Weiter zu TAB "DOCKER"
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: DOCKER -->
+            <div id="tab-2" class="tab-content">
+                <div class="section">
+                    <h2>🐳 Docker Commands</h2>
+
+                    <table>
+                        <tr>
+                            <th>Befehl</th>
+                            <th>Was es macht</th>
+                        </tr>
+                        <tr>
+                            <td><span class="code-inline">docker build -t vinted-scraper .</span></td>
+                            <td>Image bauen (1x am Anfang)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code-inline">docker-compose up -d</span></td>
+                            <td>Bot im Hintergrund starten</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code-inline">docker-compose down</span></td>
+                            <td>Bot stoppen & löschen</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code-inline">docker-compose logs -f</span></td>
+                            <td>Live Logs anschauen (Strg+C zum beenden)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code-inline">docker-compose ps</span></td>
+                            <td>Status: Läuft der Bot?</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code-inline">docker-compose restart</span></td>
+                            <td>Bot neu starten</td>
+                        </tr>
+                    </table>
+
+                    <div class="info-box" style="margin-top: 30px;">
+                        <strong>ℹ️ Bot läuft jetzt 24/7!</strong><br>
+                        Zeigt neue Artikel automatisch im Discord Channel oder über Telegram.
+                        <br><br>
+                        Kein Zutun nötig - läuft einfach!
+                    </div>
+
+                    <div class="collapsible" onclick="toggleCollapsible(this)">
+                        <strong>▶ Fortgeschrittene Befehle (optional)</strong>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button># In den Container hinein (Debug)
+docker exec -it vinted-scraper-bot bash
+
+# .env Datei im Container prüfen
+docker exec -it vinted-scraper-bot cat /app/.env
+
+# Container komplett neu bauen (ohne Cache)
+docker build --no-cache -t vinted-scraper .
+
+# Alle alten Images löschen
+docker image prune -a</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: FEHLER -->
+            <div id="tab-3" class="tab-content">
+                <div class="section">
+                    <h2>🆘 Häufige Fehler</h2>
+
+                    <div class="collapsible" onclick="toggleCollapsible(this)">
+                        <strong>❌ "docker: command not found"</strong>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Docker nicht installiert. Download: <a href="https://www.docker.com/products/docker-desktop" target="_blank">docker.com</a></p>
+                        <p style="margin-top: 10px;">Nach Installation: Computer neustarten!</p>
+                    </div>
+
+                    <div class="collapsible" onclick="toggleCollapsible(this)">
+                        <strong>❌ "TELEGRAM_TOKEN nicht gefunden"</strong>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Deine .env Datei ist leer oder existiert nicht.</p>
+                        <p style="margin-top: 10px;"><strong>Prüfen:</strong></p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>.env existiert im Projekt-Ordner (neben Dockerfile)</li>
+                            <li>.env ist NICHT .env.txt</li>
+                            <li>.env hat 5 Zeilen (TOKEN, CHAT_ID, etc.)</li>
+                        </ul>
+                        <p style="margin-top: 15px;"><strong>Lösung:</strong> Neu bauen:</p>
+                        <div class="code-block" style="margin-top: 10px;"><button class="copy-btn" onclick="copy(this)">C</button>docker-compose down
+docker image prune -a
+docker-compose up -d --build</div>
+                    </div>
+
+                    <div class="collapsible" onclick="toggleCollapsible(this)">
+                        <strong>❌ "Container läuft nicht" / "Error"</strong>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Schau dir die Logs an:</p>
+                        <div class="code-block"><button class="copy-btn" onclick="copy(this)">C</button>docker-compose logs</div>
+                        <p style="margin-top: 15px;">Die Logs zeigen GENAU was falsch ist. Meist:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>.env nicht gefunden</li>
+                            <li>Tokens sind ungültig</li>
+                            <li>Python Fehler im Code</li>
+                        </ul>
+                    </div>
+
+                    <div class="collapsible" onclick="toggleCollapsible(this)">
+                        <strong>❌ "Keine neuen Artikel gefunden"</strong>
+                    </div>
+                    <div class="collapsible-content">
+                        <p><strong>Das ist NORMAL!</strong> Passiert wenn:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>Keine neuen Artikel für deinen Suchbegriff vorhanden sind</li>
+                            <li>Bot hat bereits alle als "gesehen" markiert</li>
+                            <li>Warte einfach bis neue Artikel online gehen</li>
+                        </ul>
+                        <p style="margin-top: 15px;"><strong>Test:</strong> Ändere <span class="code-inline">SUCHBEGRIFF</span> in .env und starte neu</p>
+                    </div>
+
+                    <div class="collapsible" onclick="toggleCollapsible(this)">
+                        <strong>❌ "Cannot connect to Vinted"</strong>
+                    </div>
+                    <div class="collapsible-content">
+                        <p><strong>Das ist NORMAL!</strong> Der Bot hat Retry-Logic:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>Versucht 5x automatisch</li>
+                            <li>Wartet nach jedem Fehler länger (5s, 10s, 20s, 40s, 80s)</li>
+                            <li>Läuft danach einfach weiter</li>
+                        </ul>
+                        <p style="margin-top: 15px;">❌ KEIN Manual-Neustart nötig!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCHNELL REFERENZ -->
+            <div class="section" style="margin-top: 40px; background: #fff9e6; border-left-color: #ed8936;">
+                <h2 style="color: #c05621;">📋 Checkliste</h2>
+                <ul style="margin-left: 20px; margin-top: 15px;">
+                    <li style="margin: 10px 0;">☐ Docker installiert</li>
+                    <li style="margin: 10px 0;">☐ .env Datei erstellt mit 5 Zeilen</li>
+                    <li style="margin: 10px 0;">☐ Tokens eingefügt (von Tab "TOKENS")</li>
+                    <li style="margin: 10px 0;">☐ <span class="code-inline">docker build -t vinted-scraper .</span> erfolgreich</li>
+                    <li style="margin: 10px 0;">☐ <span class="code-inline">docker-compose up -d</span> gestartet</li>
+                    <li style="margin: 10px 0;">☐ <span class="code-inline">docker-compose logs -f</span> zeigt "✅ Config geladen"</li>
+                    <li style="margin: 10px 0;">☐ Keine Fehler in den Logs</li>
+                    <li style="margin: 10px 0;">☐ 🎉 FERTIG!</li>
+                </ul>
+            </div>
+
+        </div>
+
+        <div class="footer">
+            <p>🚀 Vinted Scraper Bot | Docker Edition | 2026</p>
+            <p>Fragen? → Siehe TAB "FEHLER" oder <a href="mailto:dev@example.com">dev@example.com</a></p>
+        </div>
+    </div>
+
+    <script>
+        function showTab(index) {
+            const tabs = document.querySelectorAll('.tab-content');
+            const btns = document.querySelectorAll('.tab-btn');
+            tabs.forEach(t => t.classList.remove('active'));
+            btns.forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${index}`).classList.add('active');
+            btns[index].classList.add('active');
+        }
+
+        function copy(btn) {
+            const code = btn.nextSibling.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const txt = btn.textContent;
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = txt, 1500);
+            });
+        }
+
+        function toggleCollapsible(el) {
+            el.classList.toggle('active');
+            el.nextElementSibling.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

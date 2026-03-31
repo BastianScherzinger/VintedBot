@@ -1,0 +1,17 @@
+config.py
+log.json
+seen.json
+version_1_0_vinted.tar
+Verkauf früherer Versionen/
+readme.txt
+vinted-bot.tar
+Verkauf*/
+*.tar
+
+__pycache__/
+*.pyc
+*.pyo
+
+
+venv/
+.env

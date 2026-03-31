@@ -1,0 +1,49 @@
+################################################################################
+# Docker Compose Konfiguration für Vinted Scraper Bot
+# 
+# Diese Datei definiert wie der Bot als Container läuft
+# Mit: docker-compose up -d
+################################################################################
+
+version: '3.8'
+
+services:
+  vinted-bot:
+    # Name des Service
+    # Build die Docker-Image aus dem Dockerfile
+    build: .
+    
+    # Container Name (wird angezeigt in docker ps)
+    container_name: vinted-scraper-bot
+    
+    # Lade Tokens aus .env Datei
+    # Du MUSST vorher .env erstellen mit DISCORD_TOKEN, etc.
+    env_file:
+      - .env
+    
+    # Wenn Container abstürzt, starte ihn automatisch neu
+    # unless-stopped = Starte neu außer wenn manuell gestoppt
+    restart: unless-stopped
+    
+    # Persistente Daten (überleben auch nach Container-Neustart)
+    # Links: Datei im Container → Datei auf Host
+    volumes:
+      - ./seen.json:/app/seen.json        # Gespeicherte Artikel-IDs
+      - ./log.json:/app/log.json          # Suchlogs
+    
+    # Resource Limits (damit der Bot nicht zu viel CPU/RAM frisst)
+    deploy:
+      resources:
+        limits:
+          memory: 1024M           # Max 1 GB RAM
+          cpus: '1.0'             # Max 1 CPU Kern
+        reservations:
+          memory: 512M            # Normal: 512 MB RAM
+          cpus: '0.5'             # Normal: 0.5 CPU Kern
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"           # Max 10MB pro Logdatei
+        max-file: "3"             # Behalte max 3 Logdateien
