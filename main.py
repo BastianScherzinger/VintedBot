@@ -20,6 +20,9 @@ try:
     ################################################################################
     # pyfiglet: Erstellt großen Text-Banner (für cooleres Aussehen)
     from pyfiglet import figlet_format
+
+    #damit der docker/render server nicht einschläft
+    from keep_alive import keep_alive
     
     # Telegram-Bibliothek: Für den Telegram-Bot
     from telegram import Update
@@ -419,33 +422,41 @@ Dieser Bot wurde von **python_tutorials_de** erstellt.
     ################################################################################
     @bot.command(name="channels")
     async def discord_channels(ctx):
-        """Zeige alle Vinted-Kanäle (aktiv und inaktiv) und deren IDs an"""
+        """Zeige alle aktiven Scraper und manuell erstellten Kanäle an"""
         global discord_prozesse, discord_kanal_ids
         
-        # Finde alle vinted-* Kanäle im Server
-        vinted_kanale = [ch for ch in ctx.guild.channels if ch.name.startswith("vinted-")]
+        msg = "📋 **Vinted Scraper Status:**\n\n"
         
-        if not vinted_kanale:
-            await ctx.send("❌ Keine Vinted-Kanäle im Server gefunden!")
-            return
+        # 1. Zeige alle AKTIVEN Scraper an (inklusive Setup-Kanäle)
+        msg += "🟢 **Aktive Scraper:**\n"
+        if not discord_prozesse:
+            msg += "*Keine aktiven Scraper*\n"
+        else:
+            for kanal_key, prozess in discord_prozesse.items():
+                kanal_id = discord_kanal_ids.get(kanal_key)
+                kanal = ctx.guild.get_channel(kanal_id) if kanal_id else None
+                kanal_name = kanal.mention if kanal else f"(ID: {kanal_id})"
+                
+                msg += f"• Suchbegriff: `{kanal_key}`\n"
+                msg += f"  ↳ Läuft in: {kanal_name}\n"
         
-        msg = "📋 **Alle Vinted-Kanäle:**\n\n"
-        for kanal in vinted_kanale:
-            # Finde den Begriff aus dem Kanalnamen
-            kanal_name = kanal.name
-            begriff = kanal_name.replace("vinted-", "", 1)
-            
-            # Prüfe Status
-            if begriff in discord_prozesse:
-                status = "🟢"  # Grün = aktiv
-                status_text = "Aktiv"
-            else:
-                status = "🔴"  # Rot = inaktiv
-                status_text = "Inaktiv"
-            
-            msg += f"{status} **{kanal_name}** ({status_text})\n"
-            msg += f"   Channel-ID: `{kanal.id}`\n"
-            msg += f"   Suchbegriff: `{begriff}`\n\n"
+        msg += "\n"
+        
+        # 2. Zeige alle INAKTIVEN, manuell erstellten Kanäle (vinted-*)
+        inaktive_vinted_kanale = []
+        for ch in ctx.guild.text_channels:
+            if ch.name.startswith("vinted-"):
+                # Prüfen, ob die Kanal-ID aktuell NICHT läuft
+                if ch.id not in discord_kanal_ids.values():
+                    inaktive_vinted_kanale.append(ch)
+        
+        msg += "🔴 **Inaktive manuelle Kanäle (bereit für !start):**\n"
+        if not inaktive_vinted_kanale:
+            msg += "*Keine inaktiven vinted-* Kanäle*\n"
+        else:
+            for ch in inaktive_vinted_kanale:
+                begriff = ch.name.replace("vinted-", "", 1)
+                msg += f"• {ch.mention} (Letzter Suchbegriff: `{begriff}`)\n"
         
         await ctx.send(msg)
 
@@ -877,6 +888,7 @@ Er durchsucht Vinted nach neuen Artikeln und sendet dir automatisch Benachrichti
     # Diese Funktion startet Discord und Telegram parallel
     
     async def main():
+        keep_alive()  # Starte den Keep-Alive Webserver (für Render.com)
         """Einstiegspunkt - Hier werden beide Bots gestartet"""
         async with bot:
             # Starte Discord Bot
