@@ -420,45 +420,59 @@ Dieser Bot wurde von **python_tutorials_de** erstellt.
     ################################################################################
     # DISCORD BEFEHL: !channels - Zeige alle laufenden Kanäle
     ################################################################################
+    ################################################################################
+    # DISCORD BEFEHL: !channels - Zeige ABSOLUT ALLE Kanäle
+    ################################################################################
     @bot.command(name="channels")
     async def discord_channels(ctx):
-        """Zeige alle aktiven Scraper und manuell erstellten Kanäle an"""
+        """Listet alle aktiven Scraper und alle verfügbaren Such-Kanäle auf."""
         global discord_prozesse, discord_kanal_ids
         
-        msg = "📋 **Vinted Scraper Status:**\n\n"
+        msg = "📋 **Vinted Scraper Gesamt-Übersicht**\n"
+        msg += "---" * 5 + "\n\n"
         
-        # 1. Zeige alle AKTIVEN Scraper an (inklusive Setup-Kanäle)
-        msg += "🟢 **Aktive Scraper:**\n"
+        # 1. Teil: Was läuft GERADE? (Live aus dem Speicher)
+        msg += "🟢 **AKTIVE LIVE-SCRAPER:**\n"
         if not discord_prozesse:
-            msg += "*Keine aktiven Scraper*\n"
+            msg += "*Aktuell laufen keine Hintergrund-Prozesse.*\n"
         else:
-            for kanal_key, prozess in discord_prozesse.items():
-                kanal_id = discord_kanal_ids.get(kanal_key)
-                kanal = ctx.guild.get_channel(kanal_id) if kanal_id else None
-                kanal_name = kanal.mention if kanal else f"(ID: {kanal_id})"
-                
-                msg += f"• Suchbegriff: `{kanal_key}`\n"
-                msg += f"  ↳ Läuft in: {kanal_name}\n"
+            for key in discord_prozesse.keys():
+                k_id = discord_kanal_ids.get(key)
+                # Suche den Kanal serverweit (auch in Kategorien)
+                kanal_obj = bot.get_channel(k_id) 
+                k_mention = kanal_obj.mention if kanal_obj else f"`#{key}`"
+                msg += f"• `{key}` ➜ aktiv in {k_mention}\n"
         
         msg += "\n"
+
+        # 2. Teil: Welche Kanäle existieren insgesamt für die Suche?
+        # Wir gehen durch ALLE Textkanäle des Servers
+        msg += "📂 **VERFÜGBARE SUCH-KANÄLE (Serverweit):**\n"
         
-        # 2. Zeige alle INAKTIVEN, manuell erstellten Kanäle (vinted-*)
-        inaktive_vinted_kanale = []
-        for ch in ctx.guild.text_channels:
-            if ch.name.startswith("vinted-"):
-                # Prüfen, ob die Kanal-ID aktuell NICHT läuft
-                if ch.id not in discord_kanal_ids.values():
-                    inaktive_vinted_kanale.append(ch)
-        
-        msg += "🔴 **Inaktive manuelle Kanäle (bereit für !start):**\n"
-        if not inaktive_vinted_kanale:
-            msg += "*Keine inaktiven vinted-* Kanäle*\n"
+        gefundene_kanale = []
+        for channel in ctx.guild.text_channels:
+            # Wir nehmen alle, die entweder mit 'vinted-' starten 
+            # ODER die wir in unseren Setup-Listen haben
+            is_setup_channel = any(key in channel.name for key in discord_prozesse.keys())
+            
+            if channel.name.startswith("vinted-") or is_setup_channel:
+                status = "✅" if channel.id in discord_kanal_ids.values() else "💤"
+                kat_name = f"[{channel.category.name}]" if channel.category else "[Keine Kat.]"
+                gefundene_kanale.append(f"• {status} {kat_name} {channel.mention}")
+
+        if not gefundene_kanale:
+            msg += "*Keine speziellen Such-Kanäle gefunden.*\n"
         else:
-            for ch in inaktive_vinted_kanale:
-                begriff = ch.name.replace("vinted-", "", 1)
-                msg += f"• {ch.mention} (Letzter Suchbegriff: `{begriff}`)\n"
+            # Wir sortieren sie nach Kategorien für bessere Übersicht
+            msg += "\n".join(sorted(gefundene_kanale))
+
+        msg += "\n\n*Legende: 🟢/✅ = Läuft | 💤 = Gestoppt*"
         
-        await ctx.send(msg)
+        # Falls die Nachricht zu lang wird (Discord Limit 2000 Zeichen)
+        if len(msg) > 2000:
+            await ctx.send(msg[:1990] + "...")
+        else:
+            await ctx.send(msg)
 
     ################################################################################
     # DISCORD BEFEHL: !info - Zeige Informationen
