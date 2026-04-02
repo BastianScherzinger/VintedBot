@@ -131,9 +131,12 @@ else:
 
 # Suchbegriff aus Argument
 if len(sys.argv) > 2:
-    SUCHBEGRIFF = " ".join(sys.argv[2:])  # Alle restlichen Argumente kombinieren
+    SUCHBEGRIFF = sys.argv[2]
 else:
-    SUCHBEGRIFF = os.getenv("SUCHBEGRIFF", "sneaker")  # Fallback: "sneaker"
+    SUCHBEGRIFF = os.getenv("SUCHBEGRIFF", "sneaker")
+
+# Maxpreis aus Argument (optional, 0 = kein Filter)
+MAX_PREIS = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0
 
 TOKEN_DISCORD = os.getenv("DISCORD_TOKEN")  # Discord Token laden
 
@@ -458,7 +461,16 @@ def artikel_suchen(begriff):
         LAST_COOKIE_REFRESH = time.time()
     
     url = "https://www.vinted.de/api/v2/catalog/items"
-    params = {"search_text": begriff, "order": "newest_first", "per_page": 20, "page": 1, "country_ids": ",".join(str(i) for i in COUNTRY_IDS)}
+    params = {
+        "search_text": begriff,
+        "order": "newest_first",
+        "per_page": 20,
+        "page": 1,
+        "country_ids": ",".join(str(i) for i in COUNTRY_IDS),
+    }
+    # Preisfilter nur wenn gesetzt
+    if MAX_PREIS > 0:
+        params["price_to"] = MAX_PREIS
     
     # Schritt 3: Versuche bis zu 5 Mal
     max_intentos = 5
@@ -594,7 +606,13 @@ def starten():
         if neue:
             print(f"\n🆕 {len(neue)} neuer Artikel!")
             for a in neue:
-                sleep(0.3)  # Kurze Pause zwischen Nachrichten
+                sleep(0.4)  # Kurze Pause zwischen Nachrichten
+                # Preisfilter – doppelte Absicherung falls API ihn ignoriert
+                preis_raw = a.get('price', {})
+                preis_wert = float(preis_raw.get('amount', 0)) if isinstance(preis_raw, dict) else float(preis_raw or 0)
+                if MAX_PREIS > 0 and preis_wert > MAX_PREIS:
+                    print(f"  ⏭️ Überspringe '{a['title']}' – Preis {preis_wert}€ > Limit {MAX_PREIS}€")
+                    continue
                 
                 # Extrahiere Bild-URL
                 foto = ""
@@ -651,10 +669,16 @@ def starten():
                 zustand_key = str(a.get('status', 'very_good')).lower().strip()
                 zustand = CONDITION_EMOJIS.get(zustand_key, f"📦 {zustand_key}")
                 
-                # Extrahiere Größe wenn vorhanden
+                # Größe extrahieren – mehrere mögliche Felder
                 grosse = ""
-                if a.get('size'):
-                    grosse = f"\n📏 Größe: {a.get('size')}"
+                grosse_wert = (
+                    a.get('size_title') or      # z.B. "M", "L", "XL"
+                    a.get('size') or            # numerische Größe
+                    (a.get('size_id') and str(a['size_id'])) or
+                    None
+                )
+                if grosse_wert:
+                    grosse = f"\n📏 **Größe:** {grosse_wert}"
                 
                 # Baue Link zu Artikel
                 link = f"https://www.vinted.de/items/{a['id']}"
@@ -666,8 +690,10 @@ def starten():
                     f"{zustand}\n"
                     f"💶 {preis_text}\n"
                     f"{land_display}"
-                    f"{grosse}"
+                    f"{grosse}\n"
+                    f"🔗 {link}"
                 )
+
                 
                 # Zeige im Terminal was passiert
                 print(f"  📦 {a['title']} | 💶 {preis_text} | {zustand}")

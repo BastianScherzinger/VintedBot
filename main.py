@@ -105,17 +105,81 @@ try:
     print(f"✅ Discord Channel: {bool(DISCORD_CHANNEL_ID)}")
     print("="*50 + "\n")
     
-    if not TOKENDISCORD:
-        print("❌ FEHLER: DISCORD_TOKEN nicht geladen!")
-        print("   Prüfe: .env Datei existiert im selben Verzeichnis wie main.py")
-        print("   Prüfe: DISCORD_TOKEN=... ist in .env definiert")
-        sys.exit(1)  # Beende mit Fehler
+    def env_token_speichern(key: str, wert: str):
+        """Schreibe oder überschreibe einen Key in der .env Datei"""
+        env_path = ".env"
+        lines = []
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            pass
     
+        # Bestehende Zeile ersetzen oder neue anhängen
+        key_gefunden = False
+        for i, line in enumerate(lines):
+            if line.startswith(f"{key}="):
+                lines[i] = f"{key}={wert}\n"
+                key_gefunden = True
+                break
+        if not key_gefunden:
+            lines.append(f"{key}={wert}\n")
+    
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+    def env_token_loeschen(key: str):
+        """Entferne einen Key aus der .env Datei"""
+        env_path = ".env"
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.writelines(line for line in lines if not line.startswith(f"{key}="))
+        except FileNotFoundError:
+            pass
+
+    if not TOKENDISCORD:
+        print("⚠️ DISCORD_TOKEN fehlt in der .env!")
+        print("👉 Du kannst ihn jetzt eingeben (oder Enter zum Überspringen):")
+        eingabe = input("DISCORD_TOKEN: ").strip()
+    
+        if eingabe:
+            env_token_speichern("DISCORD_TOKEN", eingabe)
+            os.environ["DISCORD_TOKEN"] = eingabe
+            TOKENDISCORD = eingabe
+            print("✅ Token gespeichert! Teste Verbindung...")
+        
+            # Token testen
+            import requests as req
+            test = req.get(
+                "https://discord.com/api/v10/users/@me",
+                headers={"Authorization": f"Bot {TOKENDISCORD}"},
+                timeout=10
+            )
+            if test.status_code != 200:
+                print(f"❌ Token ungültig (Status {test.status_code})! Wird aus .env gelöscht.")
+                env_token_loeschen("DISCORD_TOKEN")
+                sys.exit(1)
+            else:
+                print("✅ Discord Token funktioniert!")
+        else:
+            print("❌ Kein Token eingegeben. Beende.")
+            sys.exit(1)
+
     if not TOKEN:
-        print("❌ FEHLER: TELEGRAM_TOKEN nicht geladen!")
-        print("   Prüfe: .env Datei existiert")
-        print("   Prüfe: TELEGRAM_TOKEN=... ist in .env definiert")
-        sys.exit(1)  # Beende mit Fehler
+        print("⚠️ TELEGRAM_TOKEN fehlt in der .env!")
+        print("👉 Du kannst ihn jetzt eingeben (oder Enter zum Überspringen):")
+        eingabe = input("TELEGRAM_TOKEN: ").strip()
+    
+        if eingabe:
+            env_token_speichern("TELEGRAM_TOKEN", eingabe)
+            os.environ["TELEGRAM_TOKEN"] = eingabe
+            TOKEN = eingabe
+            print("✅ Telegram Token gespeichert!")
+        else:
+            print("❌ Kein Token eingegeben. Beende.")
+            sys.exit(1)
 
     ################################################################################
     # DISCORD BOT SETUP - Der Discord-Teil
@@ -159,6 +223,7 @@ Dieser Bot wurde von **python_tutorials_de** erstellt.
 🗑️ `!delete [Begriff]` → Kanal löschen
 📋 `!channels` → Alle aktiven Kanäle anzeigen
 ℹ️ `!info` → Alle verfügbaren Befehle anzeigen
+ℹ️ `!setup` → Gewünschtes Setup für den Server mit allen Filtern und Scrapern
 
 ✨ **Features:**
 ✅ Echtzeit-Benachrichtigungen
@@ -181,6 +246,7 @@ Dieser Bot wurde von **python_tutorials_de** erstellt.
     async def ping(ctx):
         """Einfacher Test-Befehl"""
         await ctx.send("Pong! 🏓")
+
 
     ################################################################################
     # DISCORD BEFEHL: !id - Zeige meine ID
@@ -417,6 +483,129 @@ Er durchsucht Vinted nach neuen Artikeln und sendet dir automatisch Benachrichti
 
 💡 **Tip:** Nutze `!new` um separate Kanäle für verschiedene Suchbegriffe zu erstellen!"""
         await ctx.send(info_msg)
+
+    ################################################################################
+    # DISCORD BEFEHL: !setup - Erstellt vordefinierte Kategorien und Kanäle
+    ################################################################################
+    @bot.command(name="setup")
+    async def discord_setup(ctx):
+        """
+        Erstellt vordefinierte Kategorien und Kanäle beim ersten Start.
+        Prüft welche bereits existieren und erstellt nur die fehlenden.
+        Startet danach automatisch Scraper für alle Kanäle.
+    
+        Beispiel: !setup
+        """
+        global discord_prozesse, discord_kanal_ids
+
+        # ── KONFIGURATION: Hier Kategorien und Kanäle definieren ──────────────────
+        SETUP_STRUKTUR = {
+            "👑 Ralph Lauren": [
+                ("rl-all",      "ralph lauren",                 40),
+                ("rl-tshirts",  "ralph lauren t shirt",         20),
+                ("rl-hoodies",  "ralph lauren hoodie pullover",  30),
+                ("rl-polos",    "ralph lauren polo",             30),
+                ("rl-jacken",   "ralph lauren jacke",            50),
+            ],
+            "👟 Nike": [
+                ("nike-all",        "nike",             40),
+                ("nike-hosen",      "nike hose",        25),
+                ("nike-hoodies",    "nike hoodie",      30),
+                ("nike-sneaker",    "nike sneaker",     50),
+                ("nike-tracksuits", "nike tracksuit",   50),
+            ],
+            "🦆 Adidas": [
+                ("adidas-all",        "adidas",           40),
+                ("adidas-hosen",      "adidas hose",      25),
+                ("adidas-hoodies",    "adidas hoodie",    30),
+                ("adidas-tracksuits", "adidas tracksuit", 50),
+            ],
+            "🔥 Andere Marken": [
+                ("corteiz",       "corteiz",          40),
+                ("stone-island",  "stone island",     40),
+                ("lacoste",       "lacoste",          30),
+                ("stussy",        "stussy",           40),
+                ("carhartt",      "carhartt",         30),
+                ("jacken-all",    "jacke ralph lauren nike adidas carhartt", 80),
+            ],
+            "👖 Jeans": [
+                ("dg-jeans",     "dolce gabbana jeans",  70),
+                ("missme-jeans", "miss me jeans",         50),
+                ("levis-jeans",  "levis jeans",           30),
+                ("tr-jeans",     "true religion jeans",   70),
+            ],
+            "👟 Sneaker": [
+                ("sneaker-all", "sneaker",  40),
+                ("jordans",     "jordan",   60),
+                ("dunks",       "dunk",     50),
+            ],
+            "💻 Tech": [
+                ("gaming-pc",  "gaming pc",    450),
+                ("pc-parts",   "gpu ram",      200),
+            ],
+        }
+        # ──────────────────────────────────────────────────────────────────────────
+
+        await ctx.send("🚀 **Setup gestartet!** Prüfe Kategorien und Kanäle...")
+
+        gesamt_neu = 0
+        gesamt_existiert = 0
+        gestartete_scraper = []
+
+        for kategorie_name, kanaele in SETUP_STRUKTUR.items():
+
+            # ── Kategorie prüfen / erstellen ──────────────────────────────────────
+            kategorie = discord.utils.get(ctx.guild.categories, name=kategorie_name)
+            if kategorie:
+                await ctx.send(f"✅ Kategorie **{kategorie_name}** existiert bereits.")
+            else:
+                kategorie = await ctx.guild.create_category(kategorie_name)
+                await ctx.send(f"🆕 Kategorie **{kategorie_name}** erstellt.")
+
+            # ── Kanäle in der Kategorie prüfen / erstellen ────────────────────────
+            for kanal_name, suchbegriff, max_preis in kanaele:
+
+                # Prüfe ob Kanal bereits in dieser Kategorie existiert
+                existiert = discord.utils.get(
+                    ctx.guild.text_channels,
+                    name=kanal_name,
+                    category=kategorie
+                )
+
+                if existiert:
+                    kanal = existiert
+                    await ctx.send(f"  ↳ ✅ `{kanal_name}` existiert bereits.")
+                    gesamt_existiert += 1
+                else:
+                    kanal = await kategorie.create_text_channel(name=kanal_name)
+                    await ctx.send(f"  ↳ 🆕 `{kanal_name}` erstellt.")
+                    gesamt_neu += 1
+
+                # ── Scraper starten falls noch nicht läuft ────────────────────────
+                kanal_key = get_kanal_key(suchbegriff)
+
+                if kanal_key in discord_prozesse:
+                    # Alter Scraper läuft schon → überspringen
+                    await ctx.send(f"  ↳ ⏩ Scraper für `{suchbegriff}` läuft bereits.")
+                else:
+                    prozess = subprocess.Popen(
+                        ["python", "data_discord.py", str(kanal.id), suchbegriff, str(max_preis)]
+                    )
+                    discord_prozesse[kanal_key] = prozess
+                    discord_kanal_ids[kanal_key] = kanal.id
+                    gestartete_scraper.append(suchbegriff)
+                    await ctx.send(f"  ↳ 🤖 Scraper gestartet: `{suchbegriff}` (max. {max_preis}€)")
+
+
+        # ── Zusammenfassung ───────────────────────────────────────────────────────
+        await ctx.send(
+            f"\n✅ **Setup abgeschlossen!**\n"
+            f"📁 Neue Kanäle erstellt: `{gesamt_neu}`\n"
+            f"♻️ Bereits vorhanden: `{gesamt_existiert}`\n"
+            f"🤖 Scraper gestartet: `{len(gestartete_scraper)}`\n"
+            f"🔍 Aktive Suchen: {', '.join(f'`{s}`' for s in gestartete_scraper) if gestartete_scraper else 'keine neuen'}"
+        )
+
 
     ################################################################################
     # DISCORD BEFEHL: !suche [Begriff] - Einmalige Schnellsuche
