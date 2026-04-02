@@ -1,15 +1,13 @@
 ################################################################################
 # Docker Compose Konfiguration für Vinted Scraper Bot
 # 
-# Diese Datei definiert wie der Bot als Container läuft
-# Mit: docker-compose up -d
+# Starten:  docker compose up -d
+# Logs:     docker compose logs -f
+# Stoppen:  docker compose down
 ################################################################################
-
-version: '3.8'
 
 services:
   vinted-bot:
-    # Name des Service
     # Build die Docker-Image aus dem Dockerfile
     build: .
     
@@ -26,17 +24,20 @@ services:
     restart: unless-stopped
     
     # Persistente Daten (überleben auch nach Container-Neustart)
-    # Links: Datei im Container → Datei auf Host
+    # Links: Host-Datei : Container-Datei
     volumes:
-      - ./seen.json:/app/seen.json        # Gespeicherte Artikel-IDs
-      - ./log.json:/app/log.json          # Suchlogs
+      - ./seen.json:/app/seen.json
+      - ./log.json:/app/log.json
+      - ./cities.json:/app/cities.json
+      - ./countries.json:/app/countries.json
+      - ./location_errors.json:/app/location_errors.json
     
     # Resource Limits (damit der Bot nicht zu viel CPU/RAM frisst)
     deploy:
       resources:
         limits:
-          memory: 1024M           # Max 1 GB RAM
-          cpus: '1.0'             # Max 1 CPU Kern
+          memory: 2048M           # Max 2 GB RAM (Playwright braucht mehr)
+          cpus: '1.5'             # Max 1.5 CPU Kerne
         reservations:
           memory: 512M            # Normal: 512 MB RAM
           cpus: '0.5'             # Normal: 0.5 CPU Kern

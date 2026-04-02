@@ -11,7 +11,8 @@
 ################################################################################
 
 import sys
-sys.stdout.reconfigure(line_buffering=True)  # Damit Text sofort gezeigt wird (nicht gepuffert)
+sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)  # UTF-8 + sofortige Ausgabe
+sys.stderr.reconfigure(encoding='utf-8')  # Auch Fehler in UTF-8
 
 try:
     ################################################################################
@@ -36,6 +37,7 @@ try:
     import os       # Für Umgebungsvariablen
     import subprocess  # Für Hintergrund-Prozesse starten
     import json     # Für JSON-Datei verarbeitung
+    import re       # Für HTML-Tags entfernen (Konsolen-Ausgabe)
     
     # Unsere eigenen Dateien
     from config import TOKEN, Chat_ID          # Telegram Token und Chat ID
@@ -56,32 +58,32 @@ try:
     # Diese Variablen speichern die laufenden Scraper-Prozesse
     # Damit können wir sie später stoppen (mit !stop Befehl)
 
-    from telegram import Update
-    from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-    import discord
-    from discord.ext import commands
-    from dotenv import load_dotenv
-    import asyncio
-    import os
-    import subprocess
-    import json
-    from config import TOKEN, Chat_ID
-    from data_telegram import log_suche
-    import requests
-
     ################################################################################
     # GLOBALE PROZESS-VARIABLEN
     ################################################################################
-    logprozess = None          # Für das Dashboard (optional)
-    prozess = None             # Der Telegram Scraper Prozess
-    discord_prozess = None     # Der Discord Scraper Prozess
-    SEEN_FILE = "seen.json"    # Datei mit Artikel die wir schon gesehen haben
+    logprozess = None                    # Für das Dashboard (optional)
+    prozess = None                       # Der Telegram Scraper Prozess
+    discord_prozesse = {}                # Dict mit laufenden Discord Scraper Prozessen {"nike": prozess, "adidas": prozess}
+    discord_kanal_ids = {}               # Dict für Zuordnung {"nike": channel_id, "adidas": channel_id}
+    SEEN_FILE = "seen.json"              # Datei mit Artikel die wir schon gesehen haben
 
     ################################################################################
-    # OPTIONAL: Dashboard starten
+    # HELPER FUNKTION: get_kanal_key()
     ################################################################################
-    # Wenn du ein schönes Dashboard möchtest, uncomment diese Zeile:
-    # logprozess = subprocess.Popen(["python", "log_viewer.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def get_kanal_key(suchbegriff):
+        """Erstelle einen konsistenten Schlüssel aus dem Suchbegriff (gekürzt auf 20 Zeichen, lowercase)"""
+        return suchbegriff[:20].lower()
+
+    ################################################################################
+    # OPTIONAL: Dashboard starten - VOR den Scrapern!
+    ################################################################################
+    # Dashboard muss ZUERST starten damit JSON-Dateien geleert werden
+    print("\n🚀 Starte Dashboard...")
+    logprozess = subprocess.Popen(["python", "dashboard.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print("✅ Dashboard gestartet!\n")
+    
+    import time
+    time.sleep(2)  # Warte bis Dashboard JSON-Dateien geleert hat
     
     ################################################################################
     # UMGEBUNGSVARIABLEN LADEN
@@ -143,14 +145,27 @@ try:
                 
                 if channel:
                     # Nachricht die angezeigt wird, wenn Bot startet
-                    startup_msg = (
-                        "🚀 **Vinted Scraper Bot online!**\n\n"
-                        "Der Bot wurde erfolgreich gestartet und ist einsatzbereit.\n"
-                        "Nutze `!start <suchbegriff>`, um eine neue Suche zu starten!\n"
-                        "Nutze `!stop`, um die aktuelle Suche zu beenden.\n"
-                        "Nutze `!info`, um weitere Informationen über den Bot zu erhalten.\n"
-                    )
-                    await channel.send(startup_msg)
+                    discord_startup_msg = """🚀 **Vinted Scraper Bot online!**
+
+Der Bot wurde erfolgreich gestartet und ist einsatzbereit.
+Dieser Bot wurde von **python_tutorials_de** erstellt.
+
+📋 **Discord Commands:**
+💡 `!id` → Deine Discord ID
+🆕 `!new [Begriff]` → Neuer Kanal mit Scraper
+🔄 `!start [Begriff]` → Kontinuierliche Überwachung im aktuellen Channel
+🔍 `!suche [Begriff]` → Einmalige Schnellsuche
+⏹️ `!stop [Begriff]` → Scraper stoppen
+🗑️ `!delete [Begriff]` → Kanal löschen
+📋 `!channels` → Alle aktiven Kanäle anzeigen
+ℹ️ `!info` → Alle verfügbaren Befehle anzeigen
+
+✨ **Features:**
+✅ Echtzeit-Benachrichtigungen
+📸 Mit Produktfotos
+💰 Preisanzeige
+🔗 Direkte Vinted-Links"""
+                    await channel.send(discord_startup_msg)
                     print(f"✅ Discord Start-Nachricht an Kanal {channel_id} gesendet.")
                 else:
                     print("❌ Discord Channel nicht gefunden! Hat der Bot Zugriff auf diesen Kanal?")
@@ -176,6 +191,54 @@ try:
         await ctx.send(f"💡 Deine Discord User ID: `{ctx.author.id}`\n📌 Channel ID: `{ctx.channel.id}`")
         print(f"Discord ID abgerufen: {ctx.author.id}")
 
+    #Starte einen neuen Scraper in einem neuen kanal mit festem Suchbegriff
+    @bot.command(name="new")
+    async def discord_new(ctx, *, begriff=None):
+        global discord_prozesse, discord_kanal_ids
+
+        if not begriff:
+            await ctx.send("❌ Bitte Suchbegriff angeben!")
+            return
+        
+        # Erstelle einen konsistenten Schlüssel
+        kanal_key = get_kanal_key(begriff)
+        kanal_name = f"vinted-{kanal_key}"
+        existierender_kanal = discord.utils.get(ctx.guild.channels, name=kanal_name)
+        
+        try:
+            # Wenn Kanal bereits existiert, nutze ihn
+            if existierender_kanal:
+                await ctx.send(f"ℹ️ Kanal `{kanal_name}` existiert bereits!")
+                kanal_id = existierender_kanal.id
+                await ctx.send(f"🔍 Starte Scraper für: `{begriff}`")
+            else:
+                # Erstelle neuen Kanal wenn er nicht existiert
+                await ctx.send(f"🚀 Starte neuen Kanal für: `{kanal_name}`")
+                existierender_kanal = await ctx.guild.create_text_channel(name=kanal_name)
+                kanal_id = existierender_kanal.id
+                print(f"Neuer Kanal erstellt: {existierender_kanal.name} (ID: {kanal_id})")
+                await ctx.send(f"✅ Neuer Kanal erstellt: `{existierender_kanal.name}`")
+                await ctx.send(f"🔍 Starte Scraper für: `{begriff}`")
+            
+            # Stoppe alten Scraper falls vorhanden
+            if kanal_key in discord_prozesse:
+                discord_prozesse[kanal_key].kill()
+                del discord_prozesse[kanal_key]
+                await ctx.send(f"⏸️ Alter Scraper gestoppt")
+            
+            # Starte neuen Scraper
+            await ctx.send(f"🚀 Vinted Scraper gestartet!")
+            await ctx.send(f"🔍 Suchbegriff: `{begriff}`\n⏱️ Läuft kontinuierlich...\n📲 Du erhältst Benachrichtigungen im Channel: `{existierender_kanal.name}`")
+            print(f"🚀 Discord Scraper gestartet: {begriff} im Kanal: {existierender_kanal.name}")
+
+            # Starte data_discord.py als separaten Prozess im Hintergrund
+            prozess = subprocess.Popen(["python", "data_discord.py", str(kanal_id), begriff])
+            discord_prozesse[kanal_key] = prozess
+            discord_kanal_ids[kanal_key] = kanal_id
+        except Exception as e:
+            await ctx.send(f"❌ Fehler: {str(e)}")
+            print(f"Fehler in discord_new: {e}")
+
     ################################################################################
     # DISCORD BEFEHL: !start [Begriff] - Starte kontinuierlichen Scraper
     ################################################################################
@@ -185,42 +248,140 @@ try:
         Starte einen neuen Vinted-Scraper mit einem Suchbegriff
         Beispiel: !start Nike Turnschuhe
         """
-        global discord_prozess  # Verwende die globale Variable
+        global discord_prozesse
         
         # Fehlerbehandlung: Suchbegriff vorhanden?
         if not begriff:
             await ctx.send("❌ Bitte Suchbegriff angeben!\n\n📝 Beispiel: `!start nike`")
             return
 
-        # Falls bereits ein Scraper läuft, stoppe ihn
-        if discord_prozess:
-            discord_prozess.kill()
-            print("Alter Scraper gestoppt ✅")
+        # Erstelle konsistenten Schlüssel
+        kanal_key = get_kanal_key(begriff)
+        
+        # Falls bereits dieser Scraper läuft, stoppe ihn
+        if kanal_key in discord_prozesse:
+            discord_prozesse[kanal_key].kill()
+            del discord_prozesse[kanal_key]
+            print(f"Alter Scraper für {kanal_key} gestoppt ✅")
 
         # Nachrichten senden
-        await ctx.send(f"🚀 Vinted Scraper gestartet!")
+        await ctx.send(f"✅ Vinted Scraper gestartet!")
         await ctx.send(f"🔍 Suchbegriff: `{begriff}`\n⏱️ Läuft kontinuierlich...\n📲 Du erhältst Benachrichtigungen hier im Channel!")
         print(f"🚀 Discord Scraper gestartet: {begriff}")
         
         # Starte data_discord.py als separaten Prozess im Hintergrund
         # Übergebe: Channel-ID und Suchbegriff als Argumente
-        discord_prozess = subprocess.Popen(["python", "data_discord.py", str(ctx.channel.id), begriff])
+        prozess = subprocess.Popen(["python", "data_discord.py", str(ctx.channel.id), begriff])
+        discord_prozesse[kanal_key] = prozess
 
     ################################################################################
-    # DISCORD BEFEHL: !stop - Stoppe den Scraper
+    # DISCORD BEFEHL: !stop - Stoppe einen spezifischen Scraper
     ################################################################################
     @bot.command(name="stop")
-    async def discord_stop(ctx):
-        """Stoppe den laufenden Scraper"""
-        global discord_prozess
+    async def discord_stop(ctx, *, begriff=None):
+        """Stoppe einen laufenden Scraper
+        Beispiel: !stop nike
+        """
+        global discord_prozesse
         
-        if discord_prozess:
-            discord_prozess.kill()  # Beende den Prozess
-            discord_prozess = None
-            await ctx.send("⏹️ Vinted Scraper gestoppt!\n💤 Keine neuen Benachrichtigungen mehr.")
-            print("⏹️ Discord Scraper gestoppt")
+        if not begriff:
+            await ctx.send("❌ Bitte Suchbegriff angeben!\n\n📝 Beispiel: `!stop nike`")
+            return
+        
+        kanal_key = get_kanal_key(begriff)
+        
+        if kanal_key in discord_prozesse:
+            discord_prozesse[kanal_key].kill()
+            del discord_prozesse[kanal_key]
+            if kanal_key in discord_kanal_ids:
+                del discord_kanal_ids[kanal_key]
+            await ctx.send(f"⏹️ Scraper für `{begriff}` gestoppt!\n💤 Keine neuen Benachrichtigungen mehr.")
+            print(f"⏹️ Discord Scraper für {kanal_key} gestoppt")
         else:
-            await ctx.send("⚠️ Kein aktiver Scraper läuft!")
+            await ctx.send(f"⚠️ Kein aktiver Scraper für `{begriff}` läuft!")
+
+    ################################################################################
+    # DISCORD BEFEHL: !delete [Begriff] - Lösche einen Kanal
+    ################################################################################
+    @bot.command(name="delete")
+    async def discord_delete(ctx, *, begriff=None):
+        """Lösche einen Vinted-Kanal und stoppe den Scraper
+        Beispiel: !delete nike
+        """
+        global discord_prozesse, discord_kanal_ids
+        
+        if not begriff:
+            await ctx.send("❌ Bitte Suchbegriff angeben!\n\n📝 Beispiel: `!delete nike`")
+            return
+        
+        kanal_key = get_kanal_key(begriff)
+        kanal_name = f"vinted-{kanal_key}"
+        kanal = discord.utils.get(ctx.guild.channels, name=kanal_name)
+        
+        if not kanal:
+            await ctx.send(f"❌ Kanal `{kanal_name}` nicht gefunden!")
+            return
+        
+        try:
+            # Prüfe ob ein Scraper läuft und stoppe ihn
+            scraper_war_aktiv = False
+            if kanal_key in discord_prozesse:
+                discord_prozesse[kanal_key].kill()
+                del discord_prozesse[kanal_key]
+                scraper_war_aktiv = True
+                print(f"Scraper für {kanal_key} gestoppt")
+            
+            if kanal_key in discord_kanal_ids:
+                del discord_kanal_ids[kanal_key]
+            
+            # Lösche den Kanal
+            await kanal.delete()
+            
+            # Unterschiedliche Nachricht je nachdem ob Scraper aktiv war
+            if scraper_war_aktiv:
+                await ctx.send(f"✅ Kanal `{kanal_name}` gelöscht und Scraper gestoppt!")
+                print(f"Kanal {kanal_name} gelöscht und aktiver Scraper beendet")
+            else:
+                await ctx.send(f"✅ Kanal `{kanal_name}` gelöscht!")
+                print(f"Kanal {kanal_name} gelöscht (kein Scraper war aktiv)")
+        except Exception as e:
+            await ctx.send(f"❌ Fehler beim Löschen: {str(e)}")
+            print(f"Fehler in discord_delete: {e}")
+
+    ################################################################################
+    # DISCORD BEFEHL: !channels - Zeige alle laufenden Kanäle
+    ################################################################################
+    @bot.command(name="channels")
+    async def discord_channels(ctx):
+        """Zeige alle Vinted-Kanäle (aktiv und inaktiv) und deren IDs an"""
+        global discord_prozesse, discord_kanal_ids
+        
+        # Finde alle vinted-* Kanäle im Server
+        vinted_kanale = [ch for ch in ctx.guild.channels if ch.name.startswith("vinted-")]
+        
+        if not vinted_kanale:
+            await ctx.send("❌ Keine Vinted-Kanäle im Server gefunden!")
+            return
+        
+        msg = "📋 **Alle Vinted-Kanäle:**\n\n"
+        for kanal in vinted_kanale:
+            # Finde den Begriff aus dem Kanalnamen
+            kanal_name = kanal.name
+            begriff = kanal_name.replace("vinted-", "", 1)
+            
+            # Prüfe Status
+            if begriff in discord_prozesse:
+                status = "🟢"  # Grün = aktiv
+                status_text = "Aktiv"
+            else:
+                status = "🔴"  # Rot = inaktiv
+                status_text = "Inaktiv"
+            
+            msg += f"{status} **{kanal_name}** ({status_text})\n"
+            msg += f"   Channel-ID: `{kanal.id}`\n"
+            msg += f"   Suchbegriff: `{begriff}`\n\n"
+        
+        await ctx.send(msg)
 
     ################################################################################
     # DISCORD BEFEHL: !info - Zeige Informationen
@@ -228,23 +389,33 @@ try:
     @bot.command(name="info")
     async def discord_info(ctx):
         """Zeige eine Hilfenachricht mit allen Befehlen"""
-        info_msg = """ℹ️ **Bot-Informationen**
+        info_msg = """ℹ️ **Vinted Scraper Bot - Informationen**
 
-Dieser Bot wurde von **python_tutorials_de** erstellt.
-Er durchsucht Vinted nach neuen Artikeln und sendet Benachrichtigungen!
+🤖 Dieser Bot wurde von **python_tutorials_de** erstellt.
+Er durchsucht Vinted nach neuen Artikeln und sendet dir automatisch Benachrichtigungen!
 
-📋 **Verfügbare Befehle:**
-💡 `!id` → Deine Discord ID
-🔄 `!start [Begriff]` → Kontinuierliche Überwachung
-🔍 `!suche [Begriff]` → Einmalige Schnellsuche
-⏹️ `!stop` → Laufende Suche stoppen
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **Discord Commands:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 `!id` → Zeige deine Discord ID an
+🆕 `!new [Begriff]` → Erstelle neuen Kanal + starte Scraper
+🔄 `!start [Begriff]` → Starte Scraper im aktuellen Channel
+🔍 `!suche [Begriff]` → Einmalige Schnellsuche (nicht kontinuierlich)
+⏹️ `!stop [Begriff]` → Stoppe einen laufenden Scraper
+🗑️ `!delete [Begriff]` → Lösche Kanal + stoppe Scraper
+📋 `!channels` → Zeige alle aktiven Kanäle & IDs
 ℹ️ `!info` → Diese Nachricht
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✨ **Features:**
-✅ Echtzeit-Benachrichtigungen
-📸 Mit Produktfotos
-💰 Preisanzeige
-🔗 Direkte Vinted-Links"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Echtzeitbenachrichtigungen für neue Artikel
+📸 Produktfoto automatisch mitgesendet
+💰 Preisanzeige in EUR
+🔗 Direkter Link zum Artikel auf Vinted
+🔄 Mehrere Scraper gleichzeitig möglich
+
+💡 **Tip:** Nutze `!new` um separate Kanäle für verschiedene Suchbegriffe zu erstellen!"""
         await ctx.send(info_msg)
 
     ################################################################################
@@ -279,6 +450,7 @@ Er durchsucht Vinted nach neuen Artikeln und sendet Benachrichtigungen!
                 "order": "newest_first",
                 "per_page": 10,
                 "page": 1,
+                "country_ids": ",".join(str(i) for i in range(1, 33)),
             }
 
             response = session.get(url, params=params, timeout=10)
@@ -328,14 +500,23 @@ Er durchsucht Vinted nach neuen Artikeln und sendet Benachrichtigungen!
     ################################################################################
     # Telegram-Bot Funktion funktioniert sehr ähnlich wie Discord
     
-    startup_msg = """🤖 **Telegram-Vinted-Bot gestartet!** 🚀
+    startup_msg = """🚀 Telegram-Vinted-Bot online!
 
-📋 **Verfügbare Befehle:**
-💡 /id → Zeige deine Chat ID an
-🔄 /start [Begriff] → Kontinuierliche Vinted-Suche
+Der Bot wurde erfolgreich gestartet und ist einsatzbereit.
+Dieser Bot wurde von python_tutorials_de erstellt.
+
+📋 Telegram Commands:
+💡 /id → Deine Chat ID anzeigen
+🔄 /start [Begriff] → Kontinuierliche Vinted-Suche starten
 🔍 /suche [Begriff] → Einmalige Schnellsuche
 ⏹️ /stop → Scraper stoppen
-ℹ️ /info → Bot-Informationen"""
+ℹ️ /info → Alle verfügbaren Befehle anzeigen
+
+✨ Features:
+✅ Echtzeit-Benachrichtigungen
+📸 Mit Produktfotos
+💰 Preisanzeige
+🔗 Direkte Vinted-Links"""
 
     ################################################################################
     # TELEGRAM HOOKS - Funktionen die beim Starten/Stoppen laufen
@@ -381,7 +562,7 @@ Er durchsucht Vinted nach neuen Artikeln und sendet Benachrichtigungen!
             prozess.kill()
         
         # Sende bestätigungsnachrichten
-        await update.message.reply_text("🚀 Vinted Scraper gestartet!")
+        await update.message.reply_text("✅ Vinted Scraper gestartet!")
         await update.message.reply_text(f"🔍 Suchbegriff: '{neuer_begriff}'\n⏱️ Läuft kontinuierlich...\n📲 Du erhältst Benachrichtigungen!")
         
         # Starte data_telegram.py im Hintergrund
@@ -405,23 +586,33 @@ Er durchsucht Vinted nach neuen Artikeln und sendet Benachrichtigungen!
     # TELEGRAM BEFEHL: /info - Zeige Infos
     ################################################################################
     async def tg_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Zeige Hilfenachricht"""
-        info_msg = """ℹ️ **Bot-Informationen**
+        """Zeige Hilfenachricht mit allen verfügbaren Befehlen"""
+        info_msg = """ℹ️ Vinted Scraper Bot - Informationen
 
-Dieser Bot wurde von python_tutorials_de erstellt.
+🤖 Dieser Bot wurde von python_tutorials_de erstellt.
+Er durchsucht Vinted nach neuen Artikeln und sendet dir automatisch Benachrichtigungen!
 
-📋 **Verfügbare Befehle:**
-💡 /id → Deine Chat ID
-🔄 /start [Begriff] → Kontinuierliche Überwachung
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Telegram Commands:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 /id → Zeige deine Chat ID an
+🔄 /start [Begriff] → Starte kontinuierliche Suche
 🔍 /suche [Begriff] → Einmalige Schnellsuche
-⏹️ /stop → Laufende Suche stoppen
+⏹️ /stop → Stoppe den laufenden Scraper
 ℹ️ /info → Diese Nachricht
 
-✨ **Features:**
-✅ Echtzeit-Benachrichtigungen
-📸 Mit Produktfotos
-💰 Preisanzeige
-🔗 Direkte Vinted-Links"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ Features:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Echtzeitbenachrichtigungen für neue Artikel
+📸 Produktfoto automatisch mitgesendet
+💰 Preisanzeige in EUR
+🔗 Direkter Link zum Artikel auf Vinted
+
+💡 Beispiele:
+/start Nike Turnschuhe - Sucht nach Nike Turnschuhen
+/suche Adidas - Nur eine einmalige Suche
+/stop - Beendet die aktuelle Suche"""
         await update.message.reply_text(info_msg)
 
     ################################################################################
@@ -454,7 +645,7 @@ Dieser Bot wurde von python_tutorials_de erstellt.
             
             # Suche auf Vinted API
             url = "https://www.vinted.de/api/v2/catalog/items"
-            params = {"search_text": neuer_begriff, "order": "newest_first", "per_page": 10, "page": 1}
+            params = {"search_text": neuer_begriff, "order": "newest_first", "per_page": 10, "page": 1, "country_ids": ",".join(str(i) for i in range(1, 33))}
             response = session.get(url, params=params, timeout=10)
             response.raise_for_status()
             artikel = response.json().get("items", [])

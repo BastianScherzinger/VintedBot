@@ -18,6 +18,7 @@ sys.stdout.reconfigure(line_buffering=True)  # Text sofort anzeigen
 ################################################################################
 import time      # Für Wartezeiten (sleep)
 import json      # Für JSON-Datei-Verarbeitung
+import re        # Für Regex-Operationen
 import requests  # Für HTTP-Requests zu Vinted
 from datetime import datetime  # Für Zeitstempel
 from dotenv import load_dotenv  # Tokens laden
@@ -25,8 +26,96 @@ import os        # Umgebungsvariablen
 from time import sleep  # Wartezeit zwischen Requests
 import random    # Für Zufallswerte
 
+# Location Extractor - aus test.py
+from get_adr import extract_location
+
 # .env laden (mit Discord Token)
 load_dotenv()
+
+CITIES_FILE = "cities.json"  # Datei für Stadt-Tracking
+COUNTRIES_FILE = "countries.json"  # Datei für Land-Tracking
+
+# Hilfsfunktion: Speichere Städte
+def speichere_stadt(stadt, land, emoji):
+    """Speichere gefundene Stadt in cities.json"""
+    try:
+        # 🧹 VALIDIERUNG - Stelle sicher, dass stadt/land sauber sind
+        if not stadt or not land or land == "Unbekannt":
+            return
+        
+        # NEUE LOGIK: Trenne ungültige Texte die mit Stadt/Land vermischt sind
+        # Pattern: "username Noch keine Bewertungen Bruxelles, Belgien"
+        # Extrahiere nur "Bruxelles, Belgien" Teil
+        
+        # Entferne Bewertungs-Labels
+        stadt = re.sub(r'noch\s+keine\s+bewertungen?', '', stadt, flags=re.IGNORECASE)
+        stadt = re.sub(r'\d+\s+bewertungen?', '', stadt, flags=re.IGNORECASE)
+        stadt = re.sub(r'(reviews?|rezensionen?)', '', stadt, flags=re.IGNORECASE)
+        
+        # Wenn Stadt mehrere Kommas hat, nimm den letzten Teil (Stadt, Land)
+        if ',' in stadt:
+            parts = [p.strip() for p in stadt.split(',')]
+            # Nimm letzten 2 Teile wenn mehr als 2 Kommas
+            if len(parts) >= 2:
+                stadt = parts[-2]  # Stadt
+                land = parts[-1]    # Land
+        
+        # Entferne "Zuletzt online" Metadaten aus Stadt
+        stadt = re.sub(r'(zuletzt\s+(online|aktiv)\s+vor|online\s+vor):[^,]*', '', stadt, flags=re.IGNORECASE)
+        stadt = re.sub(r'\d+\s*(min|h|d|sec|stunden|tage)', '', stadt, flags=re.IGNORECASE)
+        stadt = re.sub(r'[a-z0-9._-]+\s+\d+\s+', '', stadt, flags=re.IGNORECASE)  # Benutzernamen
+        stadt = stadt.strip()
+        
+        # Entferne auch "Zuletzt online" Metadaten aus Land
+        land = re.sub(r'(zuletzt\s+(online|aktiv)\s+vor|online\s+vor):[^,]*', '', land, flags=re.IGNORECASE)
+        land = re.sub(r'\d+\s*(min|h|d|sec|stunden|tage)', '', land, flags=re.IGNORECASE)
+        land = land.strip()
+        
+        # Vermeide zu lange/ungültige Einträge
+        if len(stadt) > 50 or len(land) > 50 or not stadt or not land:
+            print(f"⚠️ Stadt oder Land ungültig: {stadt} | {land}")
+            return
+        
+        try:
+            with open(CITIES_FILE, "r", encoding="utf-8") as f:
+                cities = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            cities = []
+        
+        cities.append({"stadt": stadt, "land": land, "emoji": emoji, "zeit": datetime.now().isoformat()})
+        with open(CITIES_FILE, "w", encoding="utf-8") as f:
+            json.dump(cities, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"⚠️ Fehler beim Speichern der Stadt: {e}")
+
+# Hilfsfunktion: Speichere Länder
+def speichere_land(land, emoji):
+    """Speichere gefundenes Land in countries.json"""
+    try:
+        # 🧹 VALIDIERUNG - Stelle sicher, dass land sauber ist
+        if not land or land == "Unbekannt":
+            return
+        
+        # Entferne "Zuletzt online" Metadaten
+        land = re.sub(r'(zuletzt\s+(online|aktiv)\s+vor|online\s+vor):[^,]*', '', land, flags=re.IGNORECASE)
+        land = re.sub(r'\d+\s*(min|h|d|sec|stunden|tage)', '', land, flags=re.IGNORECASE)
+        land = land.strip()
+        
+        # Vermeide ungültige Einträge
+        if len(land) > 50 or not land:
+            return
+        
+        try:
+            with open(COUNTRIES_FILE, "r", encoding="utf-8") as f:
+                countries = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            countries = []
+        
+        countries.append({"land": land, "emoji": emoji, "zeit": datetime.now().isoformat()})
+        with open(COUNTRIES_FILE, "w", encoding="utf-8") as f:
+            json.dump(countries, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"⚠️ Fehler beim Speichern des Landes: {e}")
 
 ################################################################################
 # ARGUMENTE - Was main.py uns übergeben hat
@@ -63,6 +152,65 @@ MAX_REQUESTS_BEFORE_RENEWAL = 50  # Session erneuern nach 50 Requests
 REQUEST_COUNT = 0  # Zähler für Requests
 LAST_COOKIE_REFRESH = time.time()  # Letzte Zeit als wir Cookies geholt haben
 COOKIE_REFRESH_INTERVAL = 600  # 10 Minuten in Sekunden
+
+# Länder für die Suche (Vinted API country_ids)
+# Diese erweitern die Suche auf ALLE europäischen Vinted-Länder
+COUNTRY_IDS = list(range(1, 33))  # 1-32: Alle Vinted-Länder
+# 1=AT, 2=BE, 3=HR, 4=CY, 5=CZ, 6=DK, 7=EE, 8=FI, 9=FR, 10=DE,
+# 11=GR, 12=HU, 13=IE, 14=IT, 15=LV, 16=LT, 17=LU, 18=MT, 19=NL, 20=PL,
+# 21=PT, 22=RO, 23=SK, 24=SI, 25=ES, 26=SE, 27=CH, 28=GB, 29=NO, 30=RU, 31=UA, 32=BG
+
+# Land-Codes aus URL Paths zuordnen
+COUNTRY_FROM_URL = {
+    "/at/": (1, "Österreich", "🇦🇹"),
+    "/de/": (10, "Deutschland", "🇩🇪"),
+    "/fr/": (9, "Frankreich", "🇫🇷"),
+    "/it/": (14, "Italien", "🇮🇹"),
+    "/es/": (25, "Spanien", "🇪🇸"),
+    "/se/": (26, "Schweden", "🇸🇪"),
+    "/nl/": (19, "Niederlande", "🇳🇱"),
+    "/be/": (2, "Belgien", "🇧🇪"),
+    "/ch/": (27, "Schweiz", "🇨🇭"),
+    "/pl/": (20, "Polen", "🇵🇱"),
+    "/gb/": (28, "Großbritannien", "🇬🇧"),
+    "/cz/": (5, "Tschechien", "🇨🇿"),
+    "/pt/": (21, "Portugal", "🇵🇹"),
+    "/ro/": (22, "Rumänien", "🇷🇴"),
+    "/sk/": (23, "Slowakei", "🇸🇰"),
+    "/ua/": (31, "Ukraine", "🇺🇦"),
+    "/gr/": (11, "Griechenland", "🇬🇷"),
+    "/hu/": (12, "Ungarn", "🇭🇺"),
+    "/ie/": (13, "Irland", "🇮🇪"),
+    "/dk/": (6, "Dänemark", "🇩🇰"),
+    "/fi/": (8, "Finnland", "🇫🇮"),
+}
+
+# Zustand-Emojis - Deutsch
+CONDITION_EMOJIS = {
+    "new": "✨ Neu",
+    "never_worn": "✨ Neu / Nie getragen",
+    "very_good": "⭐ Sehr gut",
+    "good": "👍 Gut",
+    "fair": "🤔 Mittelmäßig",
+    "poor": "📉 Schlecht",
+    "neu": "✨ Neu",
+    "sehr gut": "⭐ Sehr gut",
+    "gut": "👍 Gut",
+    "mittelmäßig": "🤔 Mittelmäßig",
+    "schlecht": "📉 Schlecht",
+}
+
+# Land-Namen zu IDs (erweitert)
+COUNTRY_NAMES = {
+    1: "Österreich", 2: "Belgien", 3: "Kroatien", 4: "Zypern", 5: "Tschechien", 6: "Dänemark", 
+    7: "Estland", 8: "Finnland", 9: "Frankreich", 10: "Deutschland", 11: "Griechenland", 
+    12: "Ungarn", 13: "Irland", 14: "Italien", 15: "Lettland", 16: "Litauen", 17: "Luxemburg", 
+    18: "Malta", 19: "Niederlande", 20: "Polen", 21: "Portugal", 22: "Rumänien", 23: "Slowakei", 
+    24: "Slowenien", 25: "Spanien", 26: "Schweden", 27: "Schweiz", 28: "Großbritannien",
+    29: "Norwegen", 30: "Russland", 31: "Ukraine", 32: "Bulgarien", 33: "Vatikanstadt", 
+    34: "Türkei", 35: "Neuseeland", 36: "Australien", 37: "Kanada", 38: "USA", 
+    39: "Marokko", 40: "Mexiko",
+}
 
 ################################################################################
 # USER-AGENTS - Verschiedene Browser "Gesichter"
@@ -165,15 +313,27 @@ def speichere_gesehene_ids(ids):
 # FUNKTION: sende_discord_nachricht()
 ################################################################################
 # Sende eine Nachricht an Discord über die API
-def sende_discord_nachricht(text, bild=None):
-    """Sende eine Nachricht an Discord mittels API mit Retry-Logic"""
+def sende_discord_nachricht(text, bild=None, artikel_link=None):
+    """Sende eine Nachricht an Discord mittels API mit Retry-Logic und Buttons"""
     url = f"https://discord.com/api/v10/channels/{CHANNEL_ID}/messages"
     headers = {
         "Authorization": f"Bot {TOKEN_DISCORD}",  # Authentifizierung
         "Content-Type": "application/json"
     }
     
-    # Baue Nachricht zusammen
+    # Baue Nachricht zusammen mit Buttons
+    buttons = []
+    if artikel_link:
+        buttons = [
+            {
+                "type": 2,
+                "style": 5,  # Link Button (Blau)
+                "label": "💰 Auf Vinted kaufen 🤑",
+                "url": artikel_link,
+                "emoji": {"name": "🔗"}
+            }
+        ]
+    
     if bild:
         # Mit Bild und Text (Embed)
         payload = {
@@ -181,11 +341,17 @@ def sende_discord_nachricht(text, bild=None):
                 "description": text,
                 "color": 0x00b4d8,  # Blauton
                 "image": {"url": bild}
-            }]
+            }],
+            "components": [
+                {
+                    "type": 1,
+                    "components": buttons
+                }
+            ] if buttons else []
         }
     else:
         # Nur Text
-        payload = {"content": text}
+        payload = {"content": text, "components": [{"type": 1, "components": buttons}] if buttons else []}
 
     max_versuche = 3
     for versuch in range(max_versuche):
@@ -222,6 +388,7 @@ def sende_discord_nachricht(text, bild=None):
                 print(f"⏳ Warte {wartezeit}s...")
                 time.sleep(wartezeit)
 
+# Start-Nachricht wird jetzt in starten() gesendet (nicht beim Import)
 
 ################################################################################
 # FUNKTION: cookie_holen()
@@ -291,7 +458,7 @@ def artikel_suchen(begriff):
         LAST_COOKIE_REFRESH = time.time()
     
     url = "https://www.vinted.de/api/v2/catalog/items"
-    params = {"search_text": begriff, "order": "newest_first", "per_page": 20, "page": 1}
+    params = {"search_text": begriff, "order": "newest_first", "per_page": 20, "page": 1, "country_ids": ",".join(str(i) for i in COUNTRY_IDS)}
     
     # Schritt 3: Versuche bis zu 5 Mal
     max_intentos = 5
@@ -397,6 +564,9 @@ def starten():
     # Schritt 1: Verbinde zu Vinted
     cookie_holen()
 
+    # Start-Nachricht senden (sicher, weil Token hier schon geprüft ist)
+    sende_discord_nachricht("✅ Vinted Scraper ist jetzt online! Suche nach neuen Artikeln...")
+
     # Schritt 2: Sende Start-Nachricht zu Discord
     sende_discord_nachricht(
         f"🚀 **Vinted Scraper gestartet!**\n"
@@ -435,22 +605,75 @@ def starten():
                 preis = a.get('price', {})
                 preis_text = f"{preis.get('amount', 'N/A')} {preis.get('currency_code', 'EUR')}" if isinstance(preis, dict) else f"{preis} EUR"
                 
+                # Extrahiere Land und Stadt – ERST aus API-Daten, dann Playwright-Fallback
+                artikel_id = a['id']
+                artikel_url = f"https://www.vinted.de/items/{artikel_id}"
+                print(f"🔍 Extrahiere Standort für Artikel {artikel_id}...")
+                try:
+                    # Pre-Check: Hat die API schon Location-Daten?
+                    api_land = None
+                    if a.get('user') and a['user'].get('country_title'):
+                        api_land = a['user']['country_title']
+                    elif a.get('country'):
+                        api_land = a['country']
+                    
+                    if api_land:
+                        # API hat die Antwort → kein Playwright nötig!
+                        stadt = a.get('user', {}).get('city') or a.get('city', '') or ''
+                        land = api_land
+                        from get_adr import COUNTRY_EMOJI
+                        emoji = COUNTRY_EMOJI.get(land, '❓')
+                        print(f"⚡ Standort aus API: {emoji} {stadt + ', ' + land if stadt else land}")
+                        from get_adr import speichere_location_success
+                        speichere_location_success(str(artikel_id), stadt, land, a['title'])
+                    else:
+                        # Kein API-Land → Playwright starten
+                        stadt, land, emoji = extract_location(artikel_url)
+                        if land == "Unbekannt":
+                            from get_adr import speichere_location_error
+                            speichere_location_error(str(artikel_id), "location_extraction_failed", a['title'])
+                        else:
+                            from get_adr import speichere_location_success
+                            speichere_location_success(str(artikel_id), stadt, land, a['title'])
+                        print(f"✅ Standort via Playwright: {emoji} {stadt + ', ' + land if stadt else land}")
+                    
+                    speichere_stadt(stadt, land, emoji)  # 🏙️ Speichere Stadt für Dashboard
+                    speichere_land(land, emoji)  # 🏙️ Speichere Land für Dashboard
+                    if stadt:
+                        land_display = f"\n🌍 {emoji} {stadt}, {land}"
+                    else:
+                        land_display = f"\n🌍 {emoji} {land}"
+                except Exception as e:
+                    print(f"⚠️ Standort-Fehler: {e}")
+                    land_display = "\n🌍 ❓ Standort konnte nicht extrahiert werden"
+                
+                # Extrahiere Zustand (Condition) - versuche mehrere Möglichkeiten
+                zustand_key = str(a.get('status', 'very_good')).lower().strip()
+                zustand = CONDITION_EMOJIS.get(zustand_key, f"📦 {zustand_key}")
+                
+                # Extrahiere Größe wenn vorhanden
+                grosse = ""
+                if a.get('size'):
+                    grosse = f"\n📏 Größe: {a.get('size')}"
+                
                 # Baue Link zu Artikel
                 link = f"https://www.vinted.de/items/{a['id']}"
                 
-                # Baue Nachricht zusammen
+                # Baue Nachricht zusammen mit allen Infos
                 nachricht = (
                     f"🆕 **Neuer Artikel!**\n\n"
                     f"📦 **{a['title']}**\n"
+                    f"{zustand}\n"
                     f"💶 {preis_text}\n"
-                    f"🔗 {link}"
+                    f"{land_display}"
+                    f"{grosse}"
                 )
                 
                 # Zeige im Terminal was passiert
-                print(f"  📦 {a['title']} | 💶 {preis_text}")
+                print(f"  📦 {a['title']} | 💶 {preis_text} | {zustand}")
                 
-                # Sende zu Discord!
-                sende_discord_nachricht(nachricht, foto)
+                # Sende zu Discord mit Button!
+                sende_discord_nachricht(nachricht, foto, link)
         else:
             # Keine neuen Artikel - Warte stille
             print(f"⏳ Keine neuen Artikel... ('{SUCHBEGRIFF}')")

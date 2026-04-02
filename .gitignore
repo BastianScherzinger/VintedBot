@@ -1,17 +1,42 @@
-config.py
-log.json
-seen.json
-version_1_0_vinted.tar
-Verkauf früherer Versionen*/
-readme.txt
-vinted-bot.tar
-Verkauf*/
-*.tar
+# Umgebungsvariablen (GEHEIM!)
+.env
 
+# Python Cache
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
-
+# Virtual Environments
+.venv/
 venv/
-.env
+env/
+
+# Runtime-Daten (werden vom Bot generiert)
+seen.json
+log.json
+cities.json
+countries.json
+location_errors.json
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Docker Build Artefakte
+*.tar
+
+# Alte Versionen / Verkauf
+Verkauf*/
+version_1_0_vinted.tar
+vinted-bot.tar
+
+# Sonstiges
+readme.txt

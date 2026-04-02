@@ -1,9 +1,37 @@
-*.pyc
+# Python Cache
 __pycache__/
-.git
+*.pyc
+*.pyo
+
+# Git
+.git/
 .gitignore
-gui.py
-Verkauf früherer Versionen/
-version_1_0_vinted.tar
-.venv
+
+# Virtual Environments
+.venv/
 venv/
+env/
+
+# Runtime-Daten (Container erzeugt eigene)
+seen.json
+log.json
+cities.json
+countries.json
+location_errors.json
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Nicht benötigte Dateien
+*.tar
+*.md
+!README.md
+Verkauf*/
+START.html
+gui.py
+LICENSE
+
+# OS
+Thumbs.db
+.DS_Store

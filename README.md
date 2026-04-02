@@ -1,114 +1,166 @@
 # 🚀 Vinted Scraper Bot
 
-## ⚡ Schnellstart
+Ein automatischer Vinted-Scraper der neue Artikel in Echtzeit findet und per **Discord** und **Telegram** benachrichtigt.
 
-1. **START.html öffnen** (alle Anweisungen da)
-2. **Docker installieren**: https://www.docker.com/products/docker-desktop
-3. **Tokens holen** (Tab "TOKENS" in START.html)
-4. **.env erstellen** mit Tokens
-5. **2 Befehle:**
-   ```bash
-   docker build -t vinted-scraper .
-   docker-compose up -d
-   ```
+> Made by **python_tutorials_de** 🎓
 
 ---
 
-## 📚 Dokumetation
+## ✨ Features
 
-- **[START.html](START.html)**
-- **[CODE_ERKLÄRUNG.md](CODE_ERKLÄRUNG.md)**
+- 🔍 **Echtzeit-Suche** – Neue Artikel werden automatisch gefunden
+- 📸 **Produktfotos** – Bilder werden mitgesendet
+- 💶 **Preisanzeige** – Preis in EUR direkt sichtbar
+- 🌍 **32 Länder** – Sucht in allen europäischen Vinted-Märkten
+- 🗺️ **Standort-Erkennung** – Stadt & Land des Verkäufers via API + Playwright-Fallback
+- 📊 **Live-Dashboard** – Visuelle Statistiken im Browser
+- 🐳 **Docker-Ready** – Ein Befehl zum Starten
+
+---
+
+## ⚡ Schnellstart
+
+### Voraussetzungen
+
+- [Python 3.11+](https://www.python.org/downloads/) oder [Docker](https://www.docker.com/products/docker-desktop)
+- Telegram Bot Token ([BotFather](https://t.me/BotFather))
+- Discord Bot Token ([Developer Portal](https://discord.com/developers/applications))
+
+### 1. Repository klonen
+
+```bash
+git clone https://github.com/DEIN_USERNAME/VintedSCRAPER.git
+cd VintedSCRAPER
+```
+
+### 2. .env Datei erstellen
+
+```bash
+cp .env.example .env
+```
+
+Öffne `.env` und fülle deine Tokens ein:
+
+```env
+TELEGRAM_TOKEN=123456789:XXXXXXXXXXXXXXXXXXX
+TELEGRAM_CHAT_ID=987654321
+DISCORD_TOKEN=dzA1adfgd.XXXXXXXXXXXXXXXXXXXX
+DISCORD_CHANNEL_ID=123456789012345678
+```
+
+### 3a. Mit Docker starten (empfohlen)
+
+```bash
+docker compose up -d
+```
+
+### 3b. Ohne Docker starten
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+python main.py
+```
 
 ---
 
 ## 🐳 Docker
 
-```bash
-docker-compose up -d       # Starten
-docker-compose logs -f     # Logs
-docker-compose down        # Stoppen
-```
-oder versuch mal docker desktop 📚💡
+| Befehl | Beschreibung |
+|--------|-------------|
+| `docker compose up -d` | Bot im Hintergrund starten |
+| `docker compose logs -f` | Live-Logs anzeigen |
+| `docker compose down` | Bot stoppen |
+| `docker compose up -d --build` | Neu bauen & starten |
 
 ---
 
-## 💡 Tipps & Tricks
+## 📋 Bot-Befehle
 
-### 1. Mehrere Bots für verschiedene Suchbegriffe
-Du kannst Telegram/Discord jeweils nur einen Bot registrieren, aber:
-- Ein Suchbot für "Nike"
-- Ein Suchbot für "Adidas"
-- Ein Suchbot für "Supreme"
+### Discord
 
-Starte einfach mehrere `data_discord.py` Prozesse mit verschiedenen Begriffen!
+| Befehl | Beschreibung |
+|--------|-------------|
+| `!id` | Deine Discord ID anzeigen |
+| `!new [Begriff]` | Neuer Kanal + Scraper starten |
+| `!start [Begriff]` | Scraper im aktuellen Channel starten |
+| `!suche [Begriff]` | Einmalige Schnellsuche |
+| `!stop [Begriff]` | Scraper stoppen |
+| `!delete [Begriff]` | Kanal löschen + Scraper stoppen |
+| `!channels` | Alle aktiven Kanäle anzeigen |
+| `!info` | Hilfe anzeigen |
 
-### 2. Log-Viewer anschauen
-```bash
-python log_viewer.py
+### Telegram
+
+| Befehl | Beschreibung |
+|--------|-------------|
+| `/id` | Deine Chat ID anzeigen |
+| `/start [Begriff]` | Kontinuierliche Suche starten |
+| `/suche [Begriff]` | Einmalige Schnellsuche |
+| `/stop` | Scraper stoppen |
+| `/info` | Hilfe anzeigen |
+
+---
+
+## 📁 Projektstruktur
+
 ```
-Zeigt dir ein hübsches Dashboard mit deinen Suchlogs.
-
-
-### 3. Konfiguriere den User-Agent
-In `data_discord.py` & `data_telegram.py` kannst du mehr User-Agents hinzufügen:
-```python
-USER_AGENTS = [
-    "... bestehende ...",
-    "Dein neuer User-Agent hier",
-]
+VintedSCRAPER/
+├── main.py              # Hauptdatei – startet Discord + Telegram Bot
+├── data_discord.py      # Discord Scraper (Hintergrund-Prozess)
+├── data_telegram.py     # Telegram Scraper (Hintergrund-Prozess)
+├── get_adr.py           # Standort-Extraktion (API + Playwright)
+├── config.py            # Telegram Token/Chat-ID Verwaltung
+├── dashboard.py         # Live-Dashboard im Browser
+├── .env.example         # Beispiel für .env Datei
+├── requirements.txt     # Python-Abhängigkeiten
+├── Dockerfile           # Docker Image Definition
+├── compose.yaml         # Docker Compose Konfiguration
+└── README.md            # Diese Datei
 ```
+
+---
+
+## 🌍 Unterstützte Länder
+
+Der Scraper durchsucht alle **32 europäischen Vinted-Märkte**:
+
+🇦🇹 Österreich · 🇧🇪 Belgien · 🇭🇷 Kroatien · 🇨🇾 Zypern · 🇨🇿 Tschechien · 🇩🇰 Dänemark · 🇪🇪 Estland · 🇫🇮 Finnland · 🇫🇷 Frankreich · 🇩🇪 Deutschland · 🇬🇷 Griechenland · 🇭🇺 Ungarn · 🇮🇪 Irland · 🇮🇹 Italien · 🇱🇻 Lettland · 🇱🇹 Litauen · 🇱🇺 Luxemburg · 🇲🇹 Malta · 🇳🇱 Niederlande · 🇵🇱 Polen · 🇵🇹 Portugal · 🇷🇴 Rumänien · 🇸🇰 Slowakei · 🇸🇮 Slowenien · 🇪🇸 Spanien · 🇸🇪 Schweden · 🇨🇭 Schweiz · 🇬🇧 Großbritannien · 🇳🇴 Norwegen · 🇷🇺 Russland · 🇺🇦 Ukraine · 🇧🇬 Bulgarien
+
+---
+
+## 🔍 Standort-Erkennung
+
+Die Standort-Erkennung nutzt einen **zweistufigen Ansatz**:
+
+1. **⚡ API Pre-Check** – Prüft ob `user.country_title` / `user.city` im API-Response enthalten sind (sofort, kein Browser nötig)
+2. **🎭 Playwright Fallback** – Nur wenn die API keine Daten hat, wird Chromium gestartet und die Artikelseite gescraped
+
+Das spart massiv Zeit und löst das Österreich-Problem (URLs zeigen immer auf `vinted.de`, egal welches Land).
 
 ---
 
 ## 📝 Logs verstehen
 
-### Terminal Output Bedeutung
-
 | Symbol | Bedeutung |
 |--------|-----------|
 | ✅ | Erfolgreich |
 | ❌ | Fehler |
-| 🔄 | Wird erneuert |
+| ⚡ | Standort aus API (schnell) |
+| 🔄 | Session wird erneuert |
 | 🍪 | Cookie-Aktion |
-| 🆕 | Neue Artikel! |
+| 🆕 | Neue Artikel gefunden! |
 | ⏳ | Wartet |
-| 🚨 | Blocker/Fehler |
-
----
-
-## 🔍 Debugging
-
-### 1. Terminal Output durchschauen
-Der Bot gibt dir viele Info-Nachrichten. Such nach `❌` für Fehler!
-
-### 2. Logs prüfen
-- `log.json` → Alle Suchanfragen
-- `seen.json` → Gespeicherte Artikel-IDs
-- `Terminal` → Live-Output
-
-### 3. Manuell testen
-```python
-# Teste die API direkt
-python -c "
-import requests
-response = requests.get('https://www.vinted.de/api/v2/catalog/items', 
-                       params={'search_text': 'nike', 'per_page': 1})
-print(response.status_code)
-print(response.json())
-"
-```
+| 🚨 | Blocker/kritischer Fehler |
 
 ---
 
 ## 🎯 Performance-Tipps
 
-1. **Suchintervall erhöhen** - Mehr Wartezeit = Weniger Blockaden
-2. **Weniger Artikel** - `per_page: 10` statt `20`
-3. **VPN nutzen** - Andere IP = Weniger Blockaden
-4. **Discord/Telegram Delays** - Warte zwischen Meldungen
-
----
-
+1. **Suchintervall erhöhen** – `CHECK_INTERVAL` in `data_discord.py` / `data_telegram.py` anpassen
+2. **Weniger Artikel pro Seite** – `per_page: 10` statt `20`
+3. **VPN nutzen** – Andere IP = Weniger Blockaden
+4. **Docker nutzen** – Stabiler als lokale Ausführung
 
 ---
 
@@ -116,6 +168,4 @@ print(response.json())
 
 Made by **python_tutorials_de** 🎓
 
-Gern nutzen, verändern, teilen - nur mit Nennung des Autors! ✨
-
----
+Gern nutzen, verändern, teilen – nur mit Nennung des Autors! ✨
