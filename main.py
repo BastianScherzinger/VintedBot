@@ -81,9 +81,9 @@ try:
     # OPTIONAL: Dashboard starten - VOR den Scrapern!
     ################################################################################
     # Dashboard muss ZUERST starten damit JSON-Dateien geleert werden
-    print("\n🚀 Starte Dashboard...")
-    logprozess = subprocess.Popen(["python", "dashboard.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("✅ Dashboard gestartet!\n")
+    #print("\n🚀 Starte Dashboard...")
+    #logprozess = subprocess.Popen(["python", "dashboard.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print("✅ Dashboard verfügbar aber nicht geöffnet wegen Serverversion!\n")
     
     import time
     time.sleep(2)  # Warte bis Dashboard JSON-Dateien geleert hat
