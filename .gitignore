@@ -1,42 +1,48 @@
-# Umgebungsvariablen (GEHEIM!)
-.env
-
-# Python Cache
+# --- Python ---
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual Environments
+# --- Virtual Environments ---
 .venv/
 venv/
+ENV/
 env/
 
-# Runtime-Daten (werden vom Bot generiert)
-seen.json
-log.json
-cities.json
-countries.json
-location_errors.json
+# --- Environment ---
+.env
 
-# IDE / Editor
+# --- Temporary Search Data ---
+queue_*.json
+seen.json
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+*.tar
+docker-compose.override.yml
+
+# --- IDEs ---
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Docker Build Artefakte
-*.tar
-
-# Alte Versionen / Verkauf
-Verkauf*/
-version_1_0_vinted.tar
-vinted-bot.tar
-
-# Sonstiges
-readme.txt

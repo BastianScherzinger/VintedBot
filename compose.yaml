@@ -1,50 +1,22 @@
-################################################################################
-# Docker Compose Konfiguration für Vinted Scraper Bot
-# 
-# Starten:  docker compose up -d
-# Logs:     docker compose logs -f
-# Stoppen:  docker compose down
-################################################################################
-
 services:
   vinted-bot:
-    # Build die Docker-Image aus dem Dockerfile
     build: .
-    
-    # Container Name (wird angezeigt in docker ps)
-    container_name: vinted-scraper-bot
-    
-    # Lade Tokens aus .env Datei
-    # Du MUSST vorher .env erstellen mit DISCORD_TOKEN, etc.
+    container_name: vinted-scraper
+    restart: unless-stopped
     env_file:
       - .env
     
-    # Wenn Container abstürzt, starte ihn automatisch neu
-    # unless-stopped = Starte neu außer wenn manuell gestoppt
-    restart: unless-stopped
-    
-    # Persistente Daten (überleben auch nach Container-Neustart)
-    # Links: Host-Datei : Container-Datei
-    volumes:
-      - ./seen.json:/app/seen.json
-      - ./log.json:/app/log.json
-      - ./cities.json:/app/cities.json
-      - ./countries.json:/app/countries.json
-      - ./location_errors.json:/app/location_errors.json
-    
-    # Resource Limits (damit der Bot nicht zu viel CPU/RAM frisst)
+    # Da wir kein Playwright mehr nutzen, reichen 512MB RAM dicke aus
     deploy:
       resources:
         limits:
-          memory: 2048M           # Max 2 GB RAM (Playwright braucht mehr)
-          cpus: '1.5'             # Max 1.5 CPU Kerne
+          memory: 512M
         reservations:
-          memory: 512M            # Normal: 512 MB RAM
-          cpus: '0.5'             # Normal: 0.5 CPU Kern
-    
-    # Logging
+          memory: 256M
+
+    # Logging konfigurieren, damit der Festplattenplatz nicht voll läuft
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"           # Max 10MB pro Logdatei
-        max-file: "3"             # Behalte max 3 Logdateien
+        max-size: "5m"
+        max-file: "1"
